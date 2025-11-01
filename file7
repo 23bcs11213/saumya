@@ -1,0 +1,105 @@
+import java.io.*;
+import java.sql.*;
+import javax.servlet.*;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.*;
+
+/**
+ * 🎯 Employee Management Servlet
+ * Demonstrates JDBC integration with Servlet:
+ *  - Displays all employees from database
+ *  - Allows search by Employee ID
+ */
+@WebServlet("/EmployeeServlet")
+public class EmployeeServlet extends HttpServlet {
+
+    private static final long serialVersionUID = 1L;
+
+    // Database configuration
+    private static final String JDBC_URL = "jdbc:mysql://localhost:3306/companydb";
+    private static final String JDBC_USER = "root";
+    private static final String JDBC_PASS = "root";
+    private static final String JDBC_DRIVER = "com.mysql.cj.jdbc.Driver";
+
+    @Override
+    public void init() throws ServletException {
+        super.init();
+        try {
+            Class.forName(JDBC_DRIVER);
+        } catch (ClassNotFoundException e) {
+            throw new ServletException("JDBC Driver not found!", e);
+        }
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+
+        String empId = request.getParameter("empId");
+
+        out.println("<!DOCTYPE html>");
+        out.println("<html><head><title>Employee Directory</title>");
+        out.println("<style>");
+        out.println("table, th, td { border:1px solid black; border-collapse:collapse; padding:8px; }");
+        out.println("body { font-family: Arial, sans-serif; margin:20px; }");
+        out.println("</style></head><body>");
+        out.println("<h2>🏢 Employee Management Portal</h2>");
+
+        // Search form
+        out.println("<form method='get' action='EmployeeServlet'>");
+        out.println("Search Employee by ID: <input type='text' name='empId' placeholder='Enter EmpID'>");
+        out.println("<input type='submit' value='Search'>");
+        out.println("</form><br>");
+
+        try (Connection con = DriverManager.getConnection(JDBC_URL, JDBC_USER, JDBC_PASS)) {
+            Statement stmt = con.createStatement();
+            ResultSet rs;
+
+            if (empId != null && !empId.trim().isEmpty()) {
+                // Search by employee ID
+                String query = "SELECT * FROM Employee WHERE EmpID = " + empId;
+                rs = stmt.executeQuery(query);
+
+                out.println("<h3>🔍 Search Result</h3>");
+                if (!rs.isBeforeFirst()) {
+                    out.println("<p>No employee found with ID: " + empId + "</p>");
+                } else {
+                    out.println("<table>");
+                    out.println("<tr><th>EmpID</th><th>Name</th><th>Salary</th></tr>");
+                    while (rs.next()) {
+                        out.println("<tr>");
+                        out.println("<td>" + rs.getInt("EmpID") + "</td>");
+                        out.println("<td>" + rs.getString("Name") + "</td>");
+                        out.println("<td>" + rs.getDouble("Salary") + "</td>");
+                        out.println("</tr>");
+                    }
+                    out.println("</table>");
+                }
+            } else {
+                // Display all employees
+                rs = stmt.executeQuery("SELECT * FROM Employee");
+                out.println("<h3>👥 All Employees</h3>");
+                out.println("<table>");
+                out.println("<tr><th>EmpID</th><th>Name</th><th>Salary</th></tr>");
+                while (rs.next()) {
+                    out.println("<tr>");
+                    out.println("<td>" + rs.getInt("EmpID") + "</td>");
+                    out.println("<td>" + rs.getString("Name") + "</td>");
+                    out.println("<td>" + rs.getDouble("Salary") + "</td>");
+                    out.println("</tr>");
+                }
+                out.println("</table>");
+            }
+
+        } catch (SQLException e) {
+            e.printStackTrace(out);
+            out.println("<p style='color:red;'>Database Error: " + e.getMessage() + "</p>");
+        }
+
+        out.println("</body></html>");
+        out.close();
+    }
+}
