@@ -1,0 +1,125 @@
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+
+import javax.persistence.*;
+import java.util.List;
+import java.util.Properties;
+
+/**
+ * A complete single-file Hibernate CRUD example using MySQL.
+ * Demonstrates Create, Read, Update, and Delete operations on Student entity.
+ */
+public class HibernateStudentCRUD {
+
+    // --- Step 1: Define the Student entity ---
+    @Entity
+    @Table(name = "students")
+    public static class Student {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        @Column(name = "id")
+        private int id;
+
+        @Column(name = "name")
+        private String name;
+
+        @Column(name = "email")
+        private String email;
+
+        @Column(name = "course")
+        private String course;
+
+        public Student() {}
+
+        public Student(String name, String email, String course) {
+            this.name = name;
+            this.email = email;
+            this.course = course;
+        }
+
+        public int getId() { return id; }
+        public String getName() { return name; }
+        public String getEmail() { return email; }
+        public String getCourse() { return course; }
+
+        public void setName(String name) { this.name = name; }
+        public void setEmail(String email) { this.email = email; }
+        public void setCourse(String course) { this.course = course; }
+
+        @Override
+        public String toString() {
+            return "Student [id=" + id + ", name=" + name + ", email=" + email + ", course=" + course + "]";
+        }
+    }
+
+    // --- Step 2: Build Hibernate SessionFactory programmatically ---
+    private static SessionFactory getSessionFactory() {
+        Properties props = new Properties();
+        props.put("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver");
+        props.put("hibernate.connection.url", "jdbc:mysql://localhost:3306/schooldb");
+        props.put("hibernate.connection.username", "root");
+        props.put("hibernate.connection.password", "root");
+        props.put("hibernate.dialect", "org.hibernate.dialect.MySQL8Dialect");
+        props.put("hibernate.hbm2ddl.auto", "update"); // creates table automatically
+        props.put("hibernate.show_sql", "true");
+
+        Configuration cfg = new Configuration();
+        cfg.addProperties(props);
+        cfg.addAnnotatedClass(Student.class);
+
+        return cfg.buildSessionFactory();
+    }
+
+    // --- Step 3: Main Method Demonstrating CRUD Operations ---
+    public static void main(String[] args) {
+
+        SessionFactory factory = getSessionFactory();
+
+        // CREATE
+        Session session = factory.openSession();
+        Transaction tx = session.beginTransaction();
+
+        Student s1 = new Student("John Doe", "john@example.com", "Computer Science");
+        session.save(s1);
+        tx.commit();
+        session.close();
+        System.out.println("✅ Student added: " + s1);
+
+        // READ
+        session = factory.openSession();
+        List<Student> students = session.createQuery("from HibernateStudentCRUD$Student", Student.class).list();
+        System.out.println("\n📖 List of Students:");
+        for (Student st : students) {
+            System.out.println(st);
+        }
+        session.close();
+
+        // UPDATE
+        session = factory.openSession();
+        tx = session.beginTransaction();
+        Student existing = session.get(Student.class, s1.getId());
+        if (existing != null) {
+            existing.setCourse("Data Science");
+            session.update(existing);
+            System.out.println("\n✏️ Updated Student: " + existing);
+        }
+        tx.commit();
+        session.close();
+
+        // DELETE
+        session = factory.openSession();
+        tx = session.beginTransaction();
+        Student toDelete = session.get(Student.class, s1.getId());
+        if (toDelete != null) {
+            session.delete(toDelete);
+            System.out.println("\n🗑️ Deleted Student with ID: " + s1.getId());
+        }
+        tx.commit();
+        session.close();
+
+        factory.close();
+        System.out.println("\n✅ Hibernate CRUD operations completed successfully!");
+    }
+}
