@@ -1,0 +1,192 @@
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+
+import javax.persistence.*;
+import java.util.Properties;
+import java.util.List;
+
+import org.springframework.context.annotation.*;
+import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * Single-file demo:
+ * Spring + Hibernate based Online Student Management System
+ * Demonstrates CRUD + Transaction Management for fee payments/refunds
+ */
+public class OnlineStudentManagementApp {
+
+    // ============================
+    // ENTITY CLASSES
+    // ============================
+
+    @Entity
+    @Table(name = "students")
+    public static class Student {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private int id;
+
+        @Column(nullable = false)
+        private String name;
+
+        @Column(nullable = false)
+        private String course;
+
+        @Column(nullable = false)
+        private double feeBalance;
+
+        public Student() {}
+
+        public Student(String name, String course, double feeBalance) {
+            this.name = name;
+            this.course = course;
+            this.feeBalance = feeBalance;
+        }
+
+        public int getId() { return id; }
+        public String getName() { return name; }
+        public String getCourse() { return course; }
+        public double getFeeBalance() { return feeBalance; }
+
+        public void setName(String name) { this.name = name; }
+        public void setCourse(String course) { this.course = course; }
+        public void setFeeBalance(double feeBalance) { this.feeBalance = feeBalance; }
+
+        @Override
+        public String toString() {
+            return "Student [id=" + id + ", name=" + name + ", course=" + course + ", feeBalance=" + feeBalance + "]";
+        }
+    }
+
+    // ============================
+    // DAO LAYER
+    // ============================
+
+    @Repository
+    public static class StudentDAO {
+        private final SessionFactory sessionFactory;
+
+        public StudentDAO(SessionFactory sessionFactory) {
+            this.sessionFactory = sessionFactory;
+        }
+
+        public void save(Student s) {
+            sessionFactory.getCurrentSession().save(s);
+        }
+
+        public Student getById(int id) {
+            return sessionFactory.getCurrentSession().get(Student.class, id);
+        }
+
+        public List<Student> getAll() {
+            return sessionFactory.getCurrentSession()
+                    .createQuery("from OnlineStudentManagementApp$Student", Student.class)
+                    .list();
+        }
+
+        public void update(Student s) {
+            sessionFactory.getCurrentSession().update(s);
+        }
+
+        public void delete(Student s) {
+            sessionFactory.getCurrentSession().delete(s);
+        }
+    }
+
+    // ============================
+    // SERVICE LAYER (BUSINESS LOGIC)
+    // ============================
+
+    @Service
+    public static class StudentService {
+        private final StudentDAO dao;
+
+        public StudentService(StudentDAO dao) {
+            this.dao = dao;
+        }
+
+        @Transactional
+        public void addStudent(String name, String course, double feeBalance) {
+            Student s = new Student(name, course, feeBalance);
+            dao.save(s);
+            System.out.println("✅ Student added: " + s);
+        }
+
+        @Transactional
+        public void updateCourse(int id, String newCourse) {
+            Student s = dao.getById(id);
+            if (s != null) {
+                s.setCourse(newCourse);
+                dao.update(s);
+                System.out.println("✏️ Course updated for student: " + s);
+            } else {
+                System.out.println("❌ Student not found.");
+            }
+        }
+
+        @Transactional
+        public void deleteStudent(int id) {
+            Student s = dao.getById(id);
+            if (s != null) {
+                dao.delete(s);
+                System.out.println("🗑️ Deleted student: " + s.getName());
+            } else {
+                System.out.println("❌ Student not found.");
+            }
+        }
+
+        @Transactional(readOnly = true)
+        public void viewAllStudents() {
+            List<Student> list = dao.getAll();
+            System.out.println("\n📚 Student Records:");
+            for (Student s : list) {
+                System.out.println(s);
+            }
+        }
+
+        // Fee payment with rollback on error
+        @Transactional
+        public void payFees(int id, double amount) {
+            Student s = dao.getById(id);
+            if (s == null) throw new RuntimeException("Student not found.");
+            if (amount <= 0) throw new RuntimeException("Invalid payment amount.");
+            s.setFeeBalance(s.getFeeBalance() - amount);
+            dao.update(s);
+            System.out.println("💰 Payment successful! Updated: " + s);
+        }
+
+        // Refund with rollback support
+        @Transactional
+        public void refundFees(int id, double amount) {
+            Student s = dao.getById(id);
+            if (s == null) throw new RuntimeException("Student not found.");
+            if (amount <= 0) throw new RuntimeException("Invalid refund amount.");
+            s.setFeeBalance(s.getFeeBalance() + amount);
+            dao.update(s);
+            System.out.println("↩️ Refund processed! Updated: " + s);
+        }
+    }
+
+    // ============================
+    // SPRING CONFIGURATION
+    // ============================
+
+    @Configuration
+    @EnableTransactionManagement
+    @ComponentScan(basePackageClasses = OnlineStudentManagementApp.class)
+    public static class AppConfig {
+
+        @Bean
+        public SessionFactory sessionFactory() {
+            Properties props = new Properties();
+            props.put("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver");
+            props.put("hibernate.connection.url", "jdbc:mysql://localhost:3306/studentdb");
+            props.put("hibernate.connection.username", "root");
+            props.put("hibernate.connection.password", "root");
+            props.put("hibernate.dialect", "org.hibernate.dialect.MySQL8Dialect");
+            props
