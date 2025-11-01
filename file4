@@ -1,0 +1,198 @@
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
+import org.hibernate.cfg.Configuration;
+
+import javax.persistence.*;
+import java.util.Properties;
+
+import org.springframework.context.annotation.*;
+import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * A complete single-file Spring + Hibernate Banking System demo.
+ * Demonstrates @Transactional money transfer with rollback support.
+ */
+public class SpringHibernateBankingApp {
+
+    // ======== ENTITY CLASSES ========
+
+    @Entity
+    @Table(name = "accounts")
+    public static class Account {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private int id;
+
+        @Column(nullable = false)
+        private String name;
+
+        @Column(nullable = false)
+        private double balance;
+
+        public Account() {}
+        public Account(String name, double balance) {
+            this.name = name;
+            this.balance = balance;
+        }
+
+        public int getId() { return id; }
+        public String getName() { return name; }
+        public double getBalance() { return balance; }
+
+        public void setBalance(double balance) { this.balance = balance; }
+
+        @Override
+        public String toString() {
+            return "Account [id=" + id + ", name=" + name + ", balance=" + balance + "]";
+        }
+    }
+
+    // ======== DAO (Data Access Object) ========
+
+    @Repository
+    public static class AccountDAO {
+
+        private final SessionFactory sessionFactory;
+
+        public AccountDAO(SessionFactory sessionFactory) {
+            this.sessionFactory = sessionFactory;
+        }
+
+        public Account getAccountById(int id) {
+            Session session = sessionFactory.getCurrentSession();
+            return session.get(Account.class, id);
+        }
+
+        public void updateAccount(Account acc) {
+            Session session = sessionFactory.getCurrentSession();
+            session.update(acc);
+        }
+
+        public void saveAccount(Account acc) {
+            Session session = sessionFactory.getCurrentSession();
+            session.save(acc);
+        }
+    }
+
+    // ======== SERVICE LAYER ========
+
+    @Service
+    public static class BankingService {
+
+        private final AccountDAO dao;
+
+        public BankingService(AccountDAO dao) {
+            this.dao = dao;
+        }
+
+        /**
+         * Transfer money between accounts atomically.
+         * If any error occurs, the transaction will roll back automatically.
+         */
+        @Transactional
+        public void transferMoney(int fromId, int toId, double amount) {
+            Account from = dao.getAccountById(fromId);
+            Account to = dao.getAccountById(toId);
+
+            if (from == null || to == null) {
+                throw new RuntimeException("Account not found!");
+            }
+            if (from.getBalance() < amount) {
+                throw new RuntimeException("Insufficient balance in " + from.getName());
+            }
+
+            from.setBalance(from.getBalance() - amount);
+            to.setBalance(to.getBalance() + amount);
+
+            dao.updateAccount(from);
+            dao.updateAccount(to);
+
+            System.out.println("💰 Transferred " + amount + " from " + from.getName() + " to " + to.getName());
+        }
+    }
+
+    // ======== SPRING CONFIGURATION ========
+
+    @Configuration
+    @EnableTransactionManagement
+    @ComponentScan(basePackageClasses = SpringHibernateBankingApp.class)
+    public static class AppConfig {
+
+        @Bean
+        public SessionFactory sessionFactory() {
+            Properties props = new Properties();
+            props.put("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver");
+            props.put("hibernate.connection.url", "jdbc:mysql://localhost:3306/bankdb");
+            props.put("hibernate.connection.username", "root");
+            props.put("hibernate.connection.password", "root");
+            props.put("hibernate.dialect", "org.hibernate.dialect.MySQL8Dialect");
+            props.put("hibernate.hbm2ddl.auto", "update");
+            props.put("hibernate.show_sql", "true");
+
+            Configuration cfg = new Configuration();
+            cfg.addProperties(props);
+            cfg.addAnnotatedClass(Account.class);
+            return cfg.buildSessionFactory();
+        }
+
+        @Bean
+        public org.springframework.orm.hibernate5.HibernateTransactionManager transactionManager(SessionFactory sf) {
+            return new org.springframework.orm.hibernate5.HibernateTransactionManager(sf);
+        }
+
+        @Bean
+        public AccountDAO accountDAO(SessionFactory sf) {
+            return new AccountDAO(sf);
+        }
+
+        @Bean
+        public BankingService bankingService(AccountDAO dao) {
+            return new BankingService(dao);
+        }
+    }
+
+    // ======== MAIN APPLICATION ========
+
+    public static void main(String[] args) {
+
+        AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext(AppConfig.class);
+        BankingService service = context.getBean(BankingService.class);
+        SessionFactory sf = context.getBean(SessionFactory.class);
+
+        // Initialize accounts
+        Session session = sf.openSession();
+        Transaction tx = session.beginTransaction();
+        Account acc1 = new Account("Alice", 1000);
+        Account acc2 = new Account("Bob", 500);
+        session.save(acc1);
+        session.save(acc2);
+        tx.commit();
+        session.close();
+
+        System.out.println("\n✅ Accounts created: ");
+        System.out.println(acc1);
+        System.out.println(acc2);
+
+        // Perform money transfer
+        try {
+            service.transferMoney(acc1.getId(), acc2.getId(), 200);
+        } catch (Exception e) {
+            System.err.println("❌ Transaction failed: " + e.getMessage());
+        }
+
+        // Display updated balances
+        session = sf.openSession();
+        System.out.println("\n📊 Updated Account Balances:");
+        System.out.println(session.get(Account.class, acc1.getId()));
+        System.out.println(session.get(Account.class, acc2.getId()));
+        session.close();
+
+        context.close();
+        sf.close();
+        System.out.println("\n✅ Spring + Hibernate Transaction Demo Completed Successfully!");
+    }
+}
