@@ -1,0 +1,63 @@
+import java.io.*;
+import javax.servlet.*;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.*;
+
+/**
+ * A single servlet that both displays the login form
+ * and processes the login submission.
+ */
+@WebServlet("/LoginServlet")
+public class LoginServlet extends HttpServlet {
+
+    private static final long serialVersionUID = 1L;
+
+    // Display the login form when accessed via GET
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+
+        out.println("<!DOCTYPE html>");
+        out.println("<html><head><title>Login Form</title></head><body>");
+        out.println("<h2>Login Page</h2>");
+        out.println("<form action='LoginServlet' method='post'>");
+        out.println("Username: <input type='text' name='username' required><br><br>");
+        out.println("Password: <input type='password' name='password' required><br><br>");
+        out.println("<input type='submit' value='Login'>");
+        out.println("</form>");
+        out.println("</body></html>");
+    }
+
+    // Handle form submission via POST
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+
+        response.setContentType("text/html");
+        PrintWriter out = response.getWriter();
+
+        String username = request.getParameter("username");
+        String password = request.getParameter("password");
+
+        // Hardcoded valid credentials
+        String validUser = "admin";
+        String validPass = "12345";
+
+        out.println("<!DOCTYPE html>");
+        out.println("<html><head><title>Login Result</title></head><body>");
+
+        if (username != null && password != null &&
+            username.equals(validUser) && password.equals(validPass)) {
+
+            out.println("<h2>Welcome, " + username + "!</h2>");
+            out.println("<p>Login successful. You are now logged in.</p>");
+
+        } else {
+            out.println("<h2>Invalid username or password!</h2>");
+            out.println("<a href='LoginServlet'>Try Again</a>");
+        }
+
+        out.println("</body></html>");
+    }
+}
