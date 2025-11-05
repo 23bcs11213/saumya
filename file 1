@@ -1,0 +1,26 @@
+// fullstack-app.js
+
+const express = require('express');
+const path = require('path');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+// -------------------- Backend API --------------------
+app.get('/api/greeting', (req, res) => {
+  res.json({ message: 'Hello from the backend!' });
+});
+
+// -------------------- Frontend --------------------
+// Serve a simple React-like single page app
+app.use(express.static(path.join(__dirname, 'public')));
+
+// If no static file matches, serve index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
+
+// -------------------- Start Server --------------------
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
