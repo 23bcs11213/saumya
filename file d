@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>SVG Drawing Tool</title>
+  <style>
+    #canvas {
+      border: 1px solid #000;
+      width: 800px;
+      height: 500px;
+      display: block;
+      margin: 20px auto;
+      cursor: crosshair;
+    }
+  </style>
+</head>
+<body>
+  <h2 style="text-align:center;">SVG Drawing Tool</h2>
+  <svg id="canvas"></svg>
+
+  <script>
+    const svg = document.getElementById('canvas');
+    let drawing = false;
+    let rect = null;
+    let startX, startY;
+
+    svg.addEventListener('mousedown', (e) => {
+      drawing = true;
+      const rectBounds = svg.getBoundingClientRect();
+      startX = e.clientX - rectBounds.left;
+      startY = e.clientY - rectBounds.top;
+
+      rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', startX);
+      rect.setAttribute('y', startY);
+      rect.setAttribute('width', 0);
+      rect.setAttribute('height', 0);
+      rect.setAttribute('fill', 'rgba(0,0,255,0.3)');
+      rect.setAttribute('stroke', 'blue');
+      svg.appendChild(rect);
+    });
+
+    svg.addEventListener('mousemove', (e) => {
+      if (!drawing) return;
+      const rectBounds = svg.getBoundingClientRect();
+      const currentX = e.clientX - rectBounds.left;
+      const currentY = e.clientY - rectBounds.top;
+
+      const width = Math.abs(currentX - startX);
+      const height = Math.abs(currentY - startY);
+      rect.setAttribute('width', width);
+      rect.setAttribute('height', height);
+      rect.setAttribute('x', Math.min(currentX, startX));
+      rect.setAttribute('y', Math.min(currentY, startY));
+    });
+
+    svg.addEventListener('mouseup', () => {
+      drawing = false;
+      rect = null;
+    });
+
+    svg.addEventListener('mouseleave', () => {
+      if (drawing) {
+        drawing = false;
+        rect = null;
+      }
+    });
+  </script>
+</body>
+</html>
